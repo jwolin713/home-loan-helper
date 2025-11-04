@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - "**"
+
+jobs:
+  docs-lint:
+    name: Lint Markdown
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Run markdownlint
+        run: |
+          npx --yes markdownlint-cli "**/*.md" --ignore node_modules || (
+            echo "markdownlint reported issues. Review and fix as needed." && exit 1
+          )
+
+  node-ci:
+    name: Node build/test (if package.json)
+    if: ${{ hashFiles('package.json') != '' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - name: Install dependencies
+        run: |
+          if [ -f package-lock.json ]; then npm ci; else npm install; fi
+      - name: Run tests (if defined)
+        run: |
+          if npm run | grep -qE "\btest\b"; then npm test --ignore-scripts; else echo "No test script defined"; fi
+      - name: Run lint (if defined)
+        run: |
+          if npm run | grep -qE "\blint\b"; then npm run lint; else echo "No lint script"; fi
+      - name: Build (if defined)
+        run: |
+          if npm run | grep -qE "\bbuild\b"; then npm run build; else echo "No build script"; fi
+
